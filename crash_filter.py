@@ -48,7 +48,7 @@ def get_traffic_data_near_crash(
 
     filtered_df = df.filter(
         (col("DATA_AS_OF").between(time_window_start, time_window_end)) &
-        is_within_range_udf(col("_7"))
+        is_within_range_udf(col("LINK_POINTS"))
     )
 
     result_df = filtered_df.withColumn(
