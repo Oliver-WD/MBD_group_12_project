@@ -7,38 +7,44 @@ import re
 
 
 # Use this to create the parquet files, every link joined on the crash
-# directory = '../crash_anal'
+# data = pd.read_parquet("speed_links/part-00000-36e08329-ea97-4358-a9b9-9f5fd7c585ed-c000.snappy.parquet")
 #
-# data = pd.read_parquet('../crash_anal/LINK_ID=4329472/region_size=size_500m')
-#
-# for foldername in os.listdir(directory):
-#     link_id = foldername.split('=')[1]
-#     for region_folder in os.listdir(directory + '/' + foldername):
-#         if '500m' in region_folder:
-#             for filename in os.listdir(directory + '/' + foldername + '/' + region_folder):
-#                 new_data = pd.read_parquet(directory + '/' + foldername + '/' + region_folder + '/' + filename)
-#                 new_data["LINK_ID"] = link_id
-#                 data = pd.concat([data, new_data]).groupby("crash_timestamp", as_index=False).agg({'LATITUDE':'first', 'LONGITUDE':'first', 'LINK_ID':'first', 'speed_5min_after':'mean', 'speed_15min_before':'mean', 'speed_1hr_after':'mean', 'speed_15min_after':'mean'})
-# data = data.dropna()
-# data.to_parquet('links_500m.parquet')
+# for foldername in os.listdir('speed_links'):
+#     new_data = pd.read_parquet('speed_links/'+foldername)
+#     data = pd.concat([data, new_data]).groupby("DATA_AS_OF", as_index=False).agg({'LINK_ID': 'first', 'SPEED': 'first', 'TRAVEL_TIME': 'first', 'DATA_AS_OF': 'first', 'LINK_POINTS': 'first'})
+# data.to_parquet('speed_links.parquet')
 
-data = pd.read_parquet('links_500m.parquet')
-poly = pd.read_parquet('links_to_poly.parquet')
+data = pd.read_parquet('speed_links.parquet')
 
-
-data = data.merge(poly, left_on='LINK_ID', right_on='LINK_ID', how='inner')
-data["ENCODED_POLY_LINE"] = data["ENCODED_POLY_LINE"].apply(lambda x: re.sub(r"\\\\+", "", x))
-data["ENCODED_POLY_LINE"] = data["ENCODED_POLY_LINE"].apply(lambda x: re.sub(r"B\\|", "B|", x))
-data.to_parquet("test.parquet")
 print(data)
-data["POLY_LINE"] = data["ENCODED_POLY_LINE"].apply(lambda x: polyline.decode(x))
 
 
 
-data["weight"] = data["5min_diff"]
-heatmap = folium.map(location=(40.7462026,-73.9305064))
-heatmap_data = data[["LATITUDE", "LONGITUDE", "weight"]].values.toList
-HeatMap(heatmap_data).add_to(heatmap)
+data["weight"] = data["SPEED"].apply(lambda x: float(x)/65 if float(x) < 65 else 0)
+
+# Function to process LINK_POINTS column
+def process_link_points(link_points):
+    # Split the string by spaces and group into coordinate pairs
+    points = link_points.strip().split(' ')
+    coordinates = []
+    for point in points:
+        if ',' in point:
+            try:
+                lat, lon = map(float, point.split(','))
+                coordinates.append([lat, lon])
+    return coordinates
+
+# Apply the processing function to the LINK_POINTS column
+data["LINK_POINTS"] = data["LINK_POINTS"].apply(process_link_points)
+
+fmap = folium.Map(location=(40.7462026,-73.9305064), zoom_start=11)
+time_index = [t for t in data["DATA_AS_OF"]]
+
+# Prepare heatmap data
+heatmap_data = [[point, weight] for points, weight in zip(data["LINK_POINTS"], data["weight"]) for point in points]
+
+heatmap = folium.plugins.HeatMapWithTime(heatmap_data, index=time_index)
+HeatMap(heatmap_data).add_to(fmap)
 
 # Save the map as an HTML file or display it
 heatmap.save("heatmap.html")
