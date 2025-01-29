@@ -10,8 +10,6 @@ df = spark.read.option("header", True).csv("/user/s1935941/DOT_traffic_speeds.gz
 columns_to_drop = ["STATUS", "OWNER", "TRANSCOM_ID", "BOROUGH", "LINK_NAME"]
 df = df.drop(*columns_to_drop)
 
-# TODO: Filter out irrelevant date ranges
-
 # transform the DATA_AS_OF column from string to datetime object
 datetime_df = df.withColumn("DATA_AS_OF", to_timestamp("DATA_AS_OF", "MM/dd/yyyy hh:mm:ss a"))
 
