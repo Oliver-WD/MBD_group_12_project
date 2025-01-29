@@ -205,11 +205,11 @@ def analyze_crash_impacts():
     ).withColumn("region_size", lit(1000))
 
     # Create 2km metrics
-    metrics_5km = metrics_1km.withColumn(
-        "cell_id_5km",
-        floor(col("cell_id_1km") / 5)
+    metrics_2km = metrics_1km.withColumn(
+        "cell_id_2km",
+        floor(col("cell_id_1km") / 2)
     ).groupBy(
-        "cell_id_5km",
+        "cell_id_2km",
         "crash_timestamp",
         "LATITUDE",
         "LONGITUDE"
@@ -218,13 +218,13 @@ def analyze_crash_impacts():
         avg("speed_5min_after").alias("speed_5min_after"),
         avg("speed_15min_after").alias("speed_15min_after"),
         avg("speed_1hr_after").alias("speed_1hr_after")
-    ).withColumn("region_size", lit(5000))
+    ).withColumn("region_size", lit(2000))
 
     # Union all metrics using common columns
     all_metrics = metrics_500m.select(*metric_columns).unionByName(
         metrics_1km.select(*metric_columns)
     ).unionByName(
-        metrics_5km.select(*metric_columns)
+        metrics_2km.select(*metric_columns)
     ).withColumn(
         "year",
         year("crash_timestamp")
@@ -234,7 +234,7 @@ def analyze_crash_impacts():
     all_metrics.write \
         .partitionBy("year", "region_size") \
         .mode("overwrite") \
-        .parquet("/user/s1935941/tree_crash_analysis_large")
+        .parquet("/user/s1935941/tree_crash_analysis")
 
     # Clean up
     road_segments.unpersist()
